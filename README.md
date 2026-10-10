@@ -16,7 +16,7 @@ Pick a number at the bottom, then click an empty tile.
 
 The game generates a Sudoku puzzle by filling a grid and removing numbers to create empty cells.
 
-A solution-counting check ensures that removing a number does not leave the puzzle with multiple possible solutions. This helps maintain the rule that every generated puzzle has exactly one solution.
+The solution check ensures that removing a number does not leave the puzzle with multiple possible solutions. This helps maintain the rule that every generated puzzle has exactly one solution.
 
 ## Changing the difficulty
 
