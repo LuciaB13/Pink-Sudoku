@@ -1,4 +1,4 @@
-# 🌸 Pink Sudoku
+# 🧩 💓 Pink Sudoku
 
 A Sudoku game I made because I love playing Sudoku on NYT Games and I wanted to understand how the maths behind the game! Every puzzle is randomly generated and has exactly one solution.
 
