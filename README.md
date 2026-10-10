@@ -22,11 +22,11 @@ The solution check ensures that removing a number does not leave the puzzle with
 
 You can adjust the difficulty by changing cellsToRemove near the top of Sudoku.java.
 
-int cellsToRemove = 40; // Default
+int cellsToRemove = 40;                           // Default
 Fewer cells removed: More clues and an easier starting puzzle.
-More cells removed: Fewer clues and a potentially harder puzzle.
+More cells removed: Fewer clues and a harder puzzle.
 
-If you increase this value too much, the game may remove fewer cells than requested because it keeps numbers in place when removing them would result in multiple solutions.
+If you increase this value too much, the game may remove fewer cells than requested because it keeps numbers in place when removing them would result in multiple solutions. It is proved you need at least 17 starting numbers to solve Sudoku so be warned!!
 
 ## Things I want to add
 
