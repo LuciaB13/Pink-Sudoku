@@ -4,11 +4,11 @@ import javax.swing.*;
 
 public class Sudoku {
     class Tile extends JButton {
-        int r;
+        int row;
         int c;
 
-        Tile(int r, int c) {
-            this.r = r;
+        Tile(int row, int c) {
+            this.row = row;
             this.c = c;
         }
     }
@@ -31,6 +31,11 @@ public class Sudoku {
     int emptyCells = 0; // tiles still empty
     JButton refreshPuzzleButton = new JButton("New Puzzle");
 
+    // TImer addition
+    JLabel timerLabel = new JLabel("Time: 0:00");
+    Timer sudokuTimer;
+    int secondsPlayed = 0;
+
     Color headerColor = new Color(224, 80, 135);
     Color backgroundColor = new Color(255, 235, 243);
     Color startTileColor = new Color(255, 205, 224);
@@ -49,22 +54,29 @@ public class Sudoku {
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLocationRelativeTo(null);
-        frame.setLayout(new BorderLayout());
+        textPanel.setLayout(new BorderLayout());
+        textPanel.setBackground(headerColor);
+        textPanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 
-        textLabel.setFont(new Font("Arial", Font.BOLD, 25));
-        textLabel.setHorizontalAlignment(JLabel.CENTER);
-        textLabel.setText("Sudoku Errors:  " + errors);
-        textPanel.add(textLabel);
+        textLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        textLabel.setForeground(Color.WHITE);
+        textLabel.setText("Errors: " + errors);
+        textPanel.add(textLabel, BorderLayout.WEST);
 
         refreshPuzzleButton.setFont(new Font("Arial", Font.BOLD, 16));
         refreshPuzzleButton.setFocusable(false);
         refreshPuzzleButton.setBackground(backgroundColor);
         refreshPuzzleButton.setForeground(textColor);
         refreshPuzzleButton.addActionListener(e -> newGame());
-        textPanel.add(refreshPuzzleButton);
+        JPanel centreWrapper = new JPanel();
+        centreWrapper.setOpaque(false);
+        centreWrapper.add(refreshPuzzleButton);
+        textPanel.add(centreWrapper, BorderLayout.CENTER);
 
-        textPanel.setBackground(headerColor);
-        textPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        timerLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        timerLabel.setForeground(Color.WHITE);
+        textPanel.add(timerLabel, BorderLayout.EAST);
+
         frame.add(textPanel, BorderLayout.NORTH);
 
         boardPanel.setLayout(new GridLayout(9, 9));
@@ -80,6 +92,8 @@ public class Sudoku {
         setupButttons();
         frame.add(buttonsPanel, BorderLayout.SOUTH);
 
+        startTimer();
+
         // Makes the board visible when all components are included
         frame.setVisible(true);
 
@@ -88,10 +102,19 @@ public class Sudoku {
     void setupTiles() {
         emptyCells = 0; // reset the count for each sudoku game
 
-        for (int r = 0; r < 9; r++) {
+        for (int row = 0; row < 9; row++) {
             for (int c = 0; c < 9; c++) {
-                Tile tile = new Tile(r, c);
-                char tileChar = puzzle[r].charAt(c);
+                Tile tile = new Tile(row, c);
+
+                if (puzzle == null || puzzle.length != 9 || puzzle[row] == null || puzzle[row].length() != 9) {
+                    JOptionPane.showMessageDialog(
+                            frame,
+                            "The puzzle data is invalid. Please start a new game.",
+                            "Puzzle Error",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                char tileChar = puzzle[row].charAt(c);
 
                 tile.setOpaque(true);
                 tile.setBorder(BorderFactory.createLineBorder(Color.GRAY));
@@ -108,7 +131,7 @@ public class Sudoku {
                     emptyCells++;
                 }
 
-                int bottom = (r == 2 || r == 5) ? 5 : 1;
+                int bottom = (row == 2 || row == 5) ? 5 : 1;
                 int right = (c == 2 || c == 5) ? 5 : 1;
                 tile.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(0, 0, bottom, right, thickLineColor),
@@ -121,7 +144,7 @@ public class Sudoku {
                     public void actionPerformed(ActionEvent e) {
 
                         Tile clicked = (Tile) e.getSource();
-                        int row = clicked.r;
+                        int row = clicked.row;
                         int col = clicked.c;
 
                         // only do something if a number button has been selected
@@ -143,7 +166,7 @@ public class Sudoku {
                                 // if no empty tiles are left the puzzle is finished
                                 if (emptyCells == 0) {
                                     textLabel.setText("Solved! Errors: " + errors);
-
+                                    sudokuTimer.stop();
                                     // turn every tile pink when solved
                                     Component[] allTiles = boardPanel.getComponents();
                                     for (int i = 0; i < allTiles.length; i++) {
@@ -212,7 +235,7 @@ public class Sudoku {
 
     void newGame() {
         generatePuzzle();
-
+        startTimer();
         errors = 0;
         textLabel.setText("Errors: " + errors);
 
@@ -232,37 +255,41 @@ public class Sudoku {
 
     void generatePuzzle() {
         int[][] grid = new int[9][9];
-        fillGrid(grid, 0);
+        if (!fillSudokuNumberGrid(grid, 0)) {
+            throw new IllegalStateException(
+                    "Could not generate a Sudoku solution.");
+        }
 
         // save the full solution as strings
         solution = new String[9];
-        for (int r = 0; r < 9; r++) {
-            String row = "";
+        for (int row = 0; row < 9; row++) {
+            String rowString = "";
             for (int c = 0; c < 9; c++) {
-                row += grid[r][c];
+                rowString += grid[row][c];
             }
-            solution[r] = row;
+            solution[row] = rowString;
         }
 
-        // make a shuffled list of the 81 cell positions (0 to 80)
+        // make a shuffled list of the 81 cell positions (0 to 80) - the fisher-yates
+        // shuffle method
         int[] order = new int[81];
         for (int i = 0; i < 81; i++) {
             order[i] = i;
         }
-        shuffle(order);
+        shuffleNumbers(order);
 
         // remove numbers one at a time until we have removed enough
         int removed = 0;
         int i = 0;
         while (removed < cellsToRemove && i < 81) {
-            int r = order[i] / 9;
+            int row = order[i] / 9;
             int c = order[i] % 9;
-            int backup = grid[r][c];
-            grid[r][c] = 0;
+            int backup = grid[row][c];
+            grid[row][c] = 0;
 
             // if the puzzle no longer has exactly 1 solution, put the number back
             if (countSolutions(grid, 0) != 1) {
-                grid[r][c] = backup;
+                grid[row][c] = backup;
             } else {
                 removed++;
             }
@@ -271,22 +298,22 @@ public class Sudoku {
 
         // turn the grid into strings; using - for empty cells
         puzzle = new String[9];
-        for (int r = 0; r < 9; r++) {
-            String row = "";
-            for (int c = 0; c < 9; c++) {
+        for (int row = 0; row < 9; row++) {
+            String rowString = "";
+            for (int col = 0; col < 9; col++) {
                 // if the cell is 0 it is empty so show -; otherwise show the number
-                if (grid[r][c] == 0) {
-                    row += "-";
+                if (grid[row][col] == 0) {
+                    rowString += "-";
                 } else {
-                    row += grid[r][c];
+                    rowString += grid[row][col];
                 }
             }
-            puzzle[r] = row;
+            puzzle[row] = rowString;
         }
     }
 
     // randomly mixes up the order of an array
-    void shuffle(int[] arr) {
+    void shuffleNumbers(int[] arr) {
         for (int i = arr.length - 1; i > 0; i--) {
             int j = (int) (Math.random() * (i + 1));
             int temp = arr[i];
@@ -296,31 +323,30 @@ public class Sudoku {
     }
 
     // fills the grid with a random valid solution
-    boolean fillGrid(int[][] grid, int cell) {
+    boolean fillSudokuNumberGrid(int[][] grid, int cell) {
 
         if (cell == 81) {
             return true;
         }
 
-        int r = cell / 9;
-        int c = cell % 9;
+        int row = cell / 9;
+        int col = cell % 9;
 
         int[] nums = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        shuffle(nums);
+        shuffleNumbers(nums);
 
         boolean solved = false;
         int i = 0;
         while (!solved && i < 9) {
 
-            // only try this number if it doesn't break a sudoku rule
-            if (isValid(grid, r, c, nums[i])) {
-                grid[r][c] = nums[i];
+            if (isValidPuzzle(grid, row, col, nums[i])) {
+                grid[row][col] = nums[i];
 
                 // if the rest of the grid can be filled, we are done
-                if (fillGrid(grid, cell + 1)) {
+                if (fillSudokuNumberGrid(grid, cell + 1)) {
                     solved = true;
                 } else {
-                    grid[r][c] = 0; // dead end, undo and try the next number
+                    grid[row][col] = 0; 
                 }
             }
             i++;
@@ -335,10 +361,10 @@ public class Sudoku {
             return 1;
         }
 
-        int r = cell / 9;
-        int c = cell % 9;
+        int row = cell / 9;
+        int col = cell % 9;
 
-        if (grid[r][c] != 0) {
+        if (grid[row][col] != 0) {
             return countSolutions(grid, cell + 1);
         }
 
@@ -347,38 +373,37 @@ public class Sudoku {
         // keep trying numbers until we've tried all 9 or found 2 solutions
         while (n <= 9 && count < 2) {
             // only try this number if it doesn't break a sudoku rule
-            if (isValid(grid, r, c, n)) {
-                grid[r][c] = n;
+            if (isValidPuzzle(grid, row, col, n)) {
+                grid[row][col] = n;
                 count += countSolutions(grid, cell + 1);
-                grid[r][c] = 0;
+                grid[row][col] = 0;
             }
             n++;
         }
         return count;
     }
 
-    // checks if number n can go at row r, column c
-    boolean isValid(int[][] grid, int r, int c, int n) {
+    boolean isValidPuzzle(int[][] grid, int row, int col, int n) {
         boolean valid = true;
 
-        // check the row and the column
         for (int i = 0; i < 9; i++) {
+            
             // n is already in this row
-            if (grid[r][i] == n) {
+            if (grid[row][i] == n) {
                 valid = false;
             }
             // n is already in this column
-            if (grid[i][c] == n) {
+            if (grid[i][col] == n) {
                 valid = false;
             }
         }
 
-        int boxRow = (r / 3) * 3;
-        int boxCol = (c / 3) * 3;
+        int boxRow = (row / 3) * 3;
+        int boxCol = (col / 3) * 3;
 
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                // n is already in this 3x3 box
+
                 if (grid[boxRow + i][boxCol + j] == n) {
                     valid = false;
                 }
@@ -387,11 +412,27 @@ public class Sudoku {
         return valid;
     }
 
+    void startTimer() {
+        if (sudokuTimer != null) {
+            sudokuTimer.stop();
+        }
+        secondsPlayed = 0;
+        timerLabel.setText("Time: 0:00");
+
+        sudokuTimer = new Timer(1000, e -> {
+            secondsPlayed++;
+            int min = secondsPlayed / 60;
+            int sec = secondsPlayed % 60;
+            timerLabel.setText(String.format("Time: %d:%02d", min, sec));
+        });
+        sudokuTimer.start();
+    }
+
     public static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Could not set appearance :(");
         }
         SwingUtilities.invokeLater(Sudoku::new);
     }
